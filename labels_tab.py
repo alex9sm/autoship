@@ -5,6 +5,10 @@ import uuid
 import requests
 from dotenv import load_dotenv
 from shipaway import url, create_label
+import pyperclip
+import tkinter as tk
+from tkinter import messagebox
+from convertlabel import convert_all_labels
 
 # Load environment variables from .env file
 load_dotenv()
@@ -43,20 +47,30 @@ class LabelsTab:
         self.receiver_button = ctk.CTkButton(self.label_tab_buttons, text="Receiver", 
                                           command=self.show_receiver_tab,
                                           fg_color="transparent", border_width=1)
-        self.receiver_button.grid(row=0, column=1, padx=(5, 0), pady=10, sticky="w")
+        self.receiver_button.grid(row=0, column=1, padx=(5, 5), pady=10, sticky="w")
+        
+        self.generated_button = ctk.CTkButton(self.label_tab_buttons, text="Generated Labels", 
+                                           command=self.show_generated_tab,
+                                           fg_color="transparent", border_width=1)
+        self.generated_button.grid(row=0, column=2, padx=(5, 0), pady=10, sticky="w")
         
         self.label_tab_buttons.grid_columnconfigure(0, weight=1)
         self.label_tab_buttons.grid_columnconfigure(1, weight=1)
+        self.label_tab_buttons.grid_columnconfigure(2, weight=1)
         
         # Create content frames for template and receiver tabs
         self.template_frame = ctk.CTkFrame(self.label_tabs_frame, fg_color="transparent")
         self.receiver_frame = ctk.CTkFrame(self.label_tabs_frame, fg_color="transparent")
+        self.generated_frame = ctk.CTkFrame(self.label_tabs_frame, fg_color="transparent")
         
         # Setup Template tab content
         self.setup_template_tab()
         
         # Setup Receiver tab content
         self.setup_receiver_tab()
+        
+        # Setup Generated Labels tab content
+        self.setup_generated_tab()
         
         # Show default template tab
         self.show_template_tab()
@@ -501,19 +515,197 @@ class LabelsTab:
             return default
     
     def show_template_tab(self):
-        """Show template tab and hide receiver tab"""
+        """Show the Template tab"""
         self.receiver_frame.grid_forget()
+        self.generated_frame.grid_forget()
         self.template_frame.grid(row=1, column=0, sticky="nsew")
         
-        # Update button styling
-        self.template_button.configure(fg_color=["#3B8ED0", "#1F6AA5"], text_color=["#ffffff", "#ffffff"])
+        # Update button colors
+        self.template_button.configure(fg_color="#3B8ED0", text_color="white")
         self.receiver_button.configure(fg_color="transparent", text_color="white")
+        self.generated_button.configure(fg_color="transparent", text_color="white")
     
     def show_receiver_tab(self):
-        """Show receiver tab and hide template tab"""
+        """Show the Receiver tab"""
         self.template_frame.grid_forget()
+        self.generated_frame.grid_forget()
         self.receiver_frame.grid(row=1, column=0, sticky="nsew")
         
-        # Update button styling
-        self.receiver_button.configure(fg_color=["#3B8ED0", "#1F6AA5"], text_color=["#ffffff", "#ffffff"])
-        self.template_button.configure(fg_color="transparent", text_color="white") 
+        # Update button colors
+        self.template_button.configure(fg_color="transparent", text_color="white")
+        self.receiver_button.configure(fg_color="#3B8ED0", text_color="white")
+        self.generated_button.configure(fg_color="transparent", text_color="white")
+        
+    def show_generated_tab(self):
+        """Show the Generated Labels tab"""
+        self.template_frame.grid_forget()
+        self.receiver_frame.grid_forget()
+        self.generated_frame.grid(row=1, column=0, sticky="nsew")
+        
+        # Update button colors
+        self.template_button.configure(fg_color="transparent", text_color="white")
+        self.receiver_button.configure(fg_color="transparent", text_color="white")
+        self.generated_button.configure(fg_color="#3B8ED0", text_color="white")
+        
+        # Refresh the generated labels when switching to this tab
+        self.refresh_generated_labels()
+    
+    def setup_generated_tab(self):
+        """Set up the Generated Labels tab content"""
+        self.generated_title = ctk.CTkLabel(self.generated_frame, text="Generated Labels", font=ctk.CTkFont(size=18, weight="bold"))
+        self.generated_title.grid(row=0, column=0, columnspan=3, padx=20, pady=(20, 10), sticky="w")
+        
+        # Create refresh button
+        self.generated_refresh_button = ctk.CTkButton(self.generated_frame, text="Refresh", 
+                                                 command=self.refresh_generated_labels,
+                                                 width=100)
+        self.generated_refresh_button.grid(row=1, column=0, padx=20, pady=10, sticky="w")
+        
+        # Create scrollable frame for the labels table
+        self.generated_scrollable_frame = ctk.CTkScrollableFrame(self.generated_frame, width=700, height=400)
+        self.generated_scrollable_frame.grid(row=2, column=0, columnspan=3, padx=20, pady=10, sticky="nsew")
+        self.generated_frame.grid_rowconfigure(2, weight=1)
+        self.generated_frame.grid_columnconfigure(0, weight=1)
+        
+        # Create table headers
+        self.filename_header = ctk.CTkLabel(self.generated_scrollable_frame, text="Filename", 
+                                         font=ctk.CTkFont(weight="bold"))
+        self.filename_header.grid(row=0, column=0, padx=20, pady=10, sticky="w")
+        
+        self.tracking_header = ctk.CTkLabel(self.generated_scrollable_frame, text="Tracking Number",
+                                        font=ctk.CTkFont(weight="bold"))
+        self.tracking_header.grid(row=0, column=1, padx=20, pady=10, sticky="w")
+        
+        # Create Convert PDFs button at the bottom
+        self.convert_pdfs_button = ctk.CTkButton(
+            self.generated_frame, 
+            text="Convert All to PDFs",
+            command=self.convert_all_to_pdfs,
+            height=40
+        )
+        self.convert_pdfs_button.grid(row=3, column=0, columnspan=3, padx=20, pady=(10, 20), sticky="ew")
+        
+        # Add status label for conversion
+        self.conversion_status_label = ctk.CTkLabel(self.generated_frame, text="")
+        self.conversion_status_label.grid(row=4, column=0, columnspan=3, padx=20, pady=(0, 10), sticky="ew")
+        
+        # Load label data initially
+        self.refresh_generated_labels()
+    
+    def refresh_generated_labels(self):
+        """Refresh the list of generated labels and their tracking numbers"""
+        # Clear existing labels from the table (except headers)
+        for widget in self.generated_scrollable_frame.winfo_children():
+            if widget not in [self.filename_header, self.tracking_header]:
+                widget.destroy()
+        
+        # Check if generated folder exists
+        if not os.path.exists("generated"):
+            os.makedirs("generated")
+            
+        # Get all JSON files in the generated folder
+        row = 1
+        for file in os.listdir("generated"):
+            if file.endswith(".json"):
+                try:
+                    # Load the JSON file to extract tracking number
+                    with open(os.path.join("generated", file), 'r') as f:
+                        label_data = json.load(f)
+                    
+                    # Extract tracking number from response
+                    tracking_number = label_data.get("data", {}).get("tracking", "N/A")
+                    
+                    # Display filename
+                    filename_label = ctk.CTkLabel(self.generated_scrollable_frame, text=file)
+                    filename_label.grid(row=row, column=0, padx=20, pady=5, sticky="w")
+                    
+                    # Display tracking number as a clickable label
+                    if tracking_number != "N/A":
+                        tracking_label = ctk.CTkLabel(
+                            self.generated_scrollable_frame, 
+                            text=tracking_number,
+                            text_color="#1F6AA5",
+                            cursor="hand2"
+                        )
+                        tracking_label.grid(row=row, column=1, padx=20, pady=5, sticky="w")
+                        
+                        # Bind click event to copy function
+                        tracking_label.bind("<Button-1>", lambda e, tn=tracking_number: self.copy_to_clipboard(tn))
+                        
+                        # Add underline on hover
+                        tracking_label.bind("<Enter>", lambda e, label=tracking_label: self.on_tracking_enter(label))
+                        tracking_label.bind("<Leave>", lambda e, label=tracking_label: self.on_tracking_leave(label))
+                    else:
+                        tracking_label = ctk.CTkLabel(self.generated_scrollable_frame, text=tracking_number)
+                        tracking_label.grid(row=row, column=1, padx=20, pady=5, sticky="w")
+                    
+                    row += 1
+                except Exception as e:
+                    # Display file but show error for tracking number
+                    filename_label = ctk.CTkLabel(self.generated_scrollable_frame, text=file)
+                    filename_label.grid(row=row, column=0, padx=20, pady=5, sticky="w")
+                    
+                    tracking_label = ctk.CTkLabel(self.generated_scrollable_frame, 
+                                             text=f"Error: {str(e)[:20]}...",
+                                             text_color="red")
+                    tracking_label.grid(row=row, column=1, padx=20, pady=5, sticky="w")
+                    
+                    row += 1
+
+    def copy_to_clipboard(self, text):
+        """Copy text to clipboard and show confirmation"""
+        try:
+            pyperclip.copy(text)
+            
+            # Show tooltip or confirmation
+            self.show_copy_tooltip(f"Copied: {text}")
+        except Exception as e:
+            print(f"Error copying to clipboard: {str(e)}")
+    
+    def show_copy_tooltip(self, message):
+        """Show a temporary tooltip message when text is copied"""
+        # Create a simple messagebox for notification
+        messagebox.showinfo("Copied to Clipboard", message)
+    
+    def on_tracking_enter(self, label):
+        """Change appearance when mouse enters tracking number label"""
+        label.configure(font=ctk.CTkFont(underline=True))
+    
+    def on_tracking_leave(self, label):
+        """Change appearance when mouse leaves tracking number label"""
+        label.configure(font=ctk.CTkFont(underline=False))
+    
+    def convert_all_to_pdfs(self):
+        """Convert all JSON label files to PDFs"""
+        try:
+            self.conversion_status_label.configure(text="Converting labels to PDFs...", text_color="blue")
+            
+            # Force update the UI to show the status message
+            self.parent.update_idletasks()
+            
+            # Call the convert_all_labels function from convertlabel.py
+            success_count, total_count, errors = convert_all_labels()
+            
+            if errors:
+                error_msg = f"Converted {success_count}/{total_count} PDFs. Errors: {len(errors)}"
+                self.conversion_status_label.configure(text=error_msg, text_color="orange")
+                
+                # Log detailed errors
+                for error in errors:
+                    print(f"PDF Conversion Error: {error}")
+            else:
+                self.conversion_status_label.configure(
+                    text=f"Successfully converted {success_count} PDFs to the 'pdfs' folder",
+                    text_color="green"
+                )
+                
+                # Open the pdfs folder if at least one PDF was created
+                if success_count > 0:
+                    pdf_folder = os.path.abspath("pdfs")
+                    os.startfile(pdf_folder)
+        
+        except Exception as e:
+            self.conversion_status_label.configure(
+                text=f"Error converting PDFs: {str(e)}",
+                text_color="red"
+            ) 

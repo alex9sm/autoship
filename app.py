@@ -10,7 +10,7 @@ class App(ctk.CTk):
         
         # Configure window
         self.title("AutoShip")
-        self.geometry("900x600")
+        self.geometry("1000x600")
         
         # Set the appearance mode to dark
         ctk.set_appearance_mode("dark")
