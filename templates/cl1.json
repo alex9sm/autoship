@@ -2,13 +2,13 @@
   "uuid": "2268642b-f741-4430-a318-d3a970deb1af",
   "service_speed": "USPS Express",
   "sender": {
-    "name": "",
+    "name": "Diego Perez",
     "company": "",
-    "address1": "",
+    "address1": "4031 Sapling Way",
     "address2": "",
-    "city": "",
-    "state": "",
-    "postal_code": "",
+    "city": "Triangle",
+    "state": "VA",
+    "postal_code": "22172",
     "phone": ""
   },
   "recipient": {
@@ -22,11 +22,11 @@
     "phone": ""
   },
   "package": {
-    "length": "12",
-    "width": "10",
-    "height": "6",
-    "weight": "1",
-    "description": "",
+    "length": 12.0,
+    "width": 10.0,
+    "height": 6.0,
+    "weight": 1.0,
+    "description": "cl1",
     "provider": "evs",
     "references": [],
     "saturday_delivery": true

@@ -2,6 +2,12 @@ import customtkinter as ctk
 import os
 import json
 import uuid
+import requests
+from dotenv import load_dotenv
+from shipaway import url, create_label
+
+# Load environment variables from .env file
+load_dotenv()
 
 class LabelsTab:
     def __init__(self, parent):
@@ -82,7 +88,7 @@ class LabelsTab:
         self.service_speed_label.grid(row=current_row, column=0, padx=20, pady=(10, 0), sticky="w")
         
         self.service_speed_menu = ctk.CTkOptionMenu(self.template_scrollable_frame, 
-                                                 values=["USPS First Class", "USPS Priority", "USPS Express", "UPS Ground", "UPS Next Day Air"])
+                                                 values=["USPS Priority", "USPS Express"])
         self.service_speed_menu.grid(row=current_row, column=1, padx=20, pady=(10, 0), sticky="w")
         self.service_speed_menu.set("USPS Priority")
         current_row += 1
@@ -218,23 +224,214 @@ class LabelsTab:
     def setup_receiver_tab(self):
         """Set up the Receiver tab content"""
         self.receiver_title = ctk.CTkLabel(self.receiver_frame, text="Receiver Information", font=ctk.CTkFont(size=18, weight="bold"))
-        self.receiver_title.grid(row=0, column=0, padx=20, pady=(20, 10), sticky="w")
+        self.receiver_title.grid(row=0, column=0, columnspan=2, padx=20, pady=(20, 10), sticky="w")
+        
+        # Template selection section
+        self.template_selection_frame = ctk.CTkFrame(self.receiver_frame)
+        self.template_selection_frame.grid(row=1, column=0, columnspan=2, padx=20, pady=10, sticky="ew")
+        
+        self.template_selection_label = ctk.CTkLabel(self.template_selection_frame, text="Select Template:")
+        self.template_selection_label.grid(row=0, column=0, padx=20, pady=10, sticky="w")
+        
+        # Get list of template files
+        self.templates = self.get_template_files()
+        
+        # Template dropdown
+        self.template_dropdown = ctk.CTkOptionMenu(self.template_selection_frame, 
+                                                values=self.templates,
+                                                command=self.load_selected_template)
+        self.template_dropdown.grid(row=0, column=1, padx=20, pady=10, sticky="w")
+        
+        # Refresh button
+        self.refresh_button = ctk.CTkButton(self.template_selection_frame, text="Refresh", 
+                                          command=self.refresh_templates,
+                                          width=100)
+        self.refresh_button.grid(row=0, column=2, padx=20, pady=10)
         
         self.receiver_content = ctk.CTkLabel(self.receiver_frame, text="Enter receiver details for your shipping labels.")
-        self.receiver_content.grid(row=1, column=0, padx=20, pady=10, sticky="w")
+        self.receiver_content.grid(row=2, column=0, columnspan=2, padx=20, pady=10, sticky="w")
         
-        # Add some sample receiver fields
-        self.receiver_name_label = ctk.CTkLabel(self.receiver_frame, text="Name:")
-        self.receiver_name_label.grid(row=2, column=0, padx=20, pady=(10, 0), sticky="w")
+        # Create scrollable frame for recipient fields
+        self.receiver_scrollable_frame = ctk.CTkScrollableFrame(self.receiver_frame, width=700, height=400)
+        self.receiver_scrollable_frame.grid(row=3, column=0, columnspan=2, padx=20, pady=10, sticky="nsew")
+        self.receiver_frame.grid_rowconfigure(3, weight=1)
+        self.receiver_frame.grid_columnconfigure(0, weight=1)
         
-        self.receiver_name_entry = ctk.CTkEntry(self.receiver_frame, width=200)
-        self.receiver_name_entry.grid(row=2, column=1, padx=20, pady=(10, 0), sticky="w")
+        # Recipient fields
+        current_row = 0
         
-        self.receiver_address_label = ctk.CTkLabel(self.receiver_frame, text="Address:")
-        self.receiver_address_label.grid(row=3, column=0, padx=20, pady=(10, 0), sticky="w")
+        # Recipient Name
+        self.recipient_name_label = ctk.CTkLabel(self.receiver_scrollable_frame, text="Name:")
+        self.recipient_name_label.grid(row=current_row, column=0, padx=20, pady=(10, 0), sticky="w")
         
-        self.receiver_address_entry = ctk.CTkEntry(self.receiver_frame, width=200)
-        self.receiver_address_entry.grid(row=3, column=1, padx=20, pady=(10, 0), sticky="w")
+        self.recipient_name_entry = ctk.CTkEntry(self.receiver_scrollable_frame, width=200)
+        self.recipient_name_entry.grid(row=current_row, column=1, padx=20, pady=(10, 0), sticky="w")
+        current_row += 1
+        
+        # Recipient Address Line 1
+        self.recipient_address1_label = ctk.CTkLabel(self.receiver_scrollable_frame, text="Address Line 1:")
+        self.recipient_address1_label.grid(row=current_row, column=0, padx=20, pady=(10, 0), sticky="w")
+        
+        self.recipient_address1_entry = ctk.CTkEntry(self.receiver_scrollable_frame, width=200)
+        self.recipient_address1_entry.grid(row=current_row, column=1, padx=20, pady=(10, 0), sticky="w")
+        current_row += 1
+        
+        # Recipient Address Line 2
+        self.recipient_address2_label = ctk.CTkLabel(self.receiver_scrollable_frame, text="Address Line 2:")
+        self.recipient_address2_label.grid(row=current_row, column=0, padx=20, pady=(10, 0), sticky="w")
+        
+        self.recipient_address2_entry = ctk.CTkEntry(self.receiver_scrollable_frame, width=200)
+        self.recipient_address2_entry.grid(row=current_row, column=1, padx=20, pady=(10, 0), sticky="w")
+        current_row += 1
+        
+        # Recipient City
+        self.recipient_city_label = ctk.CTkLabel(self.receiver_scrollable_frame, text="City:")
+        self.recipient_city_label.grid(row=current_row, column=0, padx=20, pady=(10, 0), sticky="w")
+        
+        self.recipient_city_entry = ctk.CTkEntry(self.receiver_scrollable_frame, width=200)
+        self.recipient_city_entry.grid(row=current_row, column=1, padx=20, pady=(10, 0), sticky="w")
+        current_row += 1
+        
+        # Recipient State
+        self.recipient_state_label = ctk.CTkLabel(self.receiver_scrollable_frame, text="State:")
+        self.recipient_state_label.grid(row=current_row, column=0, padx=20, pady=(10, 0), sticky="w")
+        
+        self.recipient_state_entry = ctk.CTkEntry(self.receiver_scrollable_frame, width=200)
+        self.recipient_state_entry.grid(row=current_row, column=1, padx=20, pady=(10, 0), sticky="w")
+        current_row += 1
+        
+        # Recipient Postal Code
+        self.recipient_postal_code_label = ctk.CTkLabel(self.receiver_scrollable_frame, text="Postal Code:")
+        self.recipient_postal_code_label.grid(row=current_row, column=0, padx=20, pady=(10, 0), sticky="w")
+        
+        self.recipient_postal_code_entry = ctk.CTkEntry(self.receiver_scrollable_frame, width=200)
+        self.recipient_postal_code_entry.grid(row=current_row, column=1, padx=20, pady=(10, 0), sticky="w")
+        current_row += 1
+        
+        # Order Label button
+        self.order_label_button = ctk.CTkButton(self.receiver_frame, text="Order Label", command=self.order_label)
+        self.order_label_button.grid(row=4, column=0, columnspan=2, padx=20, pady=(20, 10))
+        
+        # Status message
+        self.receiver_status_label = ctk.CTkLabel(self.receiver_frame, text="")
+        self.receiver_status_label.grid(row=5, column=0, columnspan=2, padx=20, pady=(0, 20))
+    
+    def get_template_files(self):
+        """Get a list of JSON template files in the templates folder"""
+        templates = ["Select a template"]
+        
+        # Check if templates folder exists
+        if os.path.exists("templates"):
+            # Get all JSON files in the templates folder
+            for file in os.listdir("templates"):
+                if file.endswith(".json"):
+                    # Display friendly name (replace underscores with spaces, remove .json)
+                    friendly_name = file.replace("_", " ").replace(".json", "")
+                    templates.append(friendly_name)
+        
+        return templates
+    
+    def refresh_templates(self):
+        """Refresh the list of templates in the dropdown"""
+        # Get updated list of templates
+        templates = self.get_template_files()
+        
+        # Update dropdown values
+        self.template_dropdown.configure(values=templates)
+        
+        # Select first item
+        if templates:
+            self.template_dropdown.set(templates[0])
+        
+        self.receiver_status_label.configure(text="Template list refreshed", text_color="green")
+    
+    def load_selected_template(self, selected_template):
+        """Load the selected template data"""
+        if selected_template == "Select a template":
+            return
+            
+        # Convert display name to filename
+        filename = selected_template.replace(" ", "_") + ".json"
+        file_path = os.path.join("templates", filename)
+        
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, 'r') as file:
+                    template_data = json.load(file)
+                self.receiver_status_label.configure(text=f"Template '{selected_template}' loaded", text_color="green")
+                # Future: Pre-fill sender info or other template data as needed
+            except Exception as e:
+                self.receiver_status_label.configure(text=f"Error loading template: {str(e)}", text_color="red")
+        else:
+            self.receiver_status_label.configure(text=f"Template file not found", text_color="red")
+    
+    def order_label(self):
+        """Order a shipping label using the shipaway API"""
+        # Check if a template is selected
+        selected_template = self.template_dropdown.get()
+        if selected_template == "Select a template":
+            self.receiver_status_label.configure(text="Please select a template first", text_color="red")
+            return
+        
+        # Get recipient information
+        recipient_name = self.recipient_name_entry.get().strip()
+        recipient_address1 = self.recipient_address1_entry.get().strip()
+        recipient_city = self.recipient_city_entry.get().strip()
+        recipient_state = self.recipient_state_entry.get().strip()
+        recipient_postal_code = self.recipient_postal_code_entry.get().strip()
+        
+        # Basic validation
+        if not recipient_name or not recipient_address1 or not recipient_city or not recipient_state or not recipient_postal_code:
+            self.receiver_status_label.configure(text="Please fill in all required recipient fields", text_color="red")
+            return
+        
+        try:
+            # Load template data
+            template_filename = selected_template.replace(" ", "_") + ".json"
+            template_path = os.path.join("templates", template_filename)
+            
+            with open(template_path, 'r') as file:
+                template_data = json.load(file)
+            
+            # Update recipient information
+            template_data["recipient"]["name"] = recipient_name
+            template_data["recipient"]["address1"] = recipient_address1
+            template_data["recipient"]["address2"] = self.recipient_address2_entry.get().strip()
+            template_data["recipient"]["city"] = recipient_city
+            template_data["recipient"]["state"] = recipient_state
+            template_data["recipient"]["postal_code"] = recipient_postal_code
+            
+            # Send request to API
+            self.receiver_status_label.configure(text="Sending request to API...", text_color="blue")
+            
+            success, response = create_label(template_data)
+            
+            # Handle response
+            if success:
+                # Create generated folder if it doesn't exist
+                if not os.path.exists("generated"):
+                    os.makedirs("generated")
+                
+                # Save response to file
+                timestamp = uuid.uuid4()
+                response_filename = f"label_{timestamp}.json"
+                response_path = os.path.join("generated", response_filename)
+                
+                with open(response_path, 'w') as file:
+                    json.dump(response, file, indent=2)
+                
+                self.receiver_status_label.configure(
+                    text=f"Label ordered successfully! Response saved to {response_filename}", 
+                    text_color="green"
+                )
+            else:
+                self.receiver_status_label.configure(
+                    text=response, 
+                    text_color="red"
+                )
+        
+        except Exception as e:
+            self.receiver_status_label.configure(text=f"Error: {str(e)}", text_color="red")
     
     def save_template(self):
         """Save the template to a JSON file in the templates folder"""
@@ -254,7 +451,7 @@ class LabelsTab:
         
         # Create the template data dictionary
         template_data = {
-            "uuid": str(uuid.uuid4()),
+            "uuid": os.getenv("UUID"),
             "service_speed": self.service_speed_menu.get(),
             "sender": {
                 "name": self.sender_name_entry.get(),
