@@ -280,6 +280,7 @@ class LabelsTab:
         
         self.recipient_name_entry = ctk.CTkEntry(self.receiver_scrollable_frame, width=200)
         self.recipient_name_entry.grid(row=current_row, column=1, padx=20, pady=(10, 0), sticky="w")
+        self.recipient_name_entry.bind('<Control-v>', lambda e: self.handle_paste(e, self.recipient_name_entry))
         current_row += 1
         
         # Recipient Address Line 1
@@ -288,6 +289,7 @@ class LabelsTab:
         
         self.recipient_address1_entry = ctk.CTkEntry(self.receiver_scrollable_frame, width=200)
         self.recipient_address1_entry.grid(row=current_row, column=1, padx=20, pady=(10, 0), sticky="w")
+        self.recipient_address1_entry.bind('<Control-v>', lambda e: self.handle_paste(e, self.recipient_address1_entry))
         current_row += 1
         
         # Recipient Address Line 2
@@ -296,6 +298,7 @@ class LabelsTab:
         
         self.recipient_address2_entry = ctk.CTkEntry(self.receiver_scrollable_frame, width=200)
         self.recipient_address2_entry.grid(row=current_row, column=1, padx=20, pady=(10, 0), sticky="w")
+        self.recipient_address2_entry.bind('<Control-v>', lambda e: self.handle_paste(e, self.recipient_address2_entry))
         current_row += 1
         
         # Recipient City
@@ -304,6 +307,7 @@ class LabelsTab:
         
         self.recipient_city_entry = ctk.CTkEntry(self.receiver_scrollable_frame, width=200)
         self.recipient_city_entry.grid(row=current_row, column=1, padx=20, pady=(10, 0), sticky="w")
+        self.recipient_city_entry.bind('<Control-v>', lambda e: self.handle_paste(e, self.recipient_city_entry))
         current_row += 1
         
         # Recipient State
@@ -312,6 +316,7 @@ class LabelsTab:
         
         self.recipient_state_entry = ctk.CTkEntry(self.receiver_scrollable_frame, width=200)
         self.recipient_state_entry.grid(row=current_row, column=1, padx=20, pady=(10, 0), sticky="w")
+        self.recipient_state_entry.bind('<Control-v>', lambda e: self.handle_paste(e, self.recipient_state_entry))
         current_row += 1
         
         # Recipient Postal Code
@@ -320,6 +325,7 @@ class LabelsTab:
         
         self.recipient_postal_code_entry = ctk.CTkEntry(self.receiver_scrollable_frame, width=200)
         self.recipient_postal_code_entry.grid(row=current_row, column=1, padx=20, pady=(10, 0), sticky="w")
+        self.recipient_postal_code_entry.bind('<Control-v>', lambda e: self.handle_paste(e, self.recipient_postal_code_entry))
         current_row += 1
         
         # Order Label button
@@ -653,19 +659,20 @@ class LabelsTab:
                     row += 1
 
     def copy_to_clipboard(self, text):
-        """Copy text to clipboard and show confirmation"""
+        """Copy text to clipboard without showing a popup confirmation"""
         try:
             pyperclip.copy(text)
             
-            # Show tooltip or confirmation
-            self.show_copy_tooltip(f"Copied: {text}")
+            # No longer show a popup confirmation
+            # Just print to console for debugging if needed
+            print(f"Copied to clipboard: {text}")
         except Exception as e:
             print(f"Error copying to clipboard: {str(e)}")
     
     def show_copy_tooltip(self, message):
-        """Show a temporary tooltip message when text is copied"""
-        # Create a simple messagebox for notification
-        messagebox.showinfo("Copied to Clipboard", message)
+        """This method is kept for compatibility but doesn't show any popup"""
+        # No longer show a popup message
+        pass
     
     def on_tracking_enter(self, label):
         """Change appearance when mouse enters tracking number label"""
@@ -708,4 +715,19 @@ class LabelsTab:
             self.conversion_status_label.configure(
                 text=f"Error converting PDFs: {str(e)}",
                 text_color="red"
-            ) 
+            )
+
+    def handle_paste(self, event, entry_widget):
+        """Handle paste events by removing trailing spaces from pasted text"""
+        # Get the clipboard content
+        clipboard_text = self.parent.clipboard_get()
+        
+        # Remove trailing spaces
+        cleaned_text = clipboard_text.rstrip()
+        
+        # Update the clipboard with the cleaned text
+        self.parent.clipboard_clear()
+        self.parent.clipboard_append(cleaned_text)
+        
+        # Let the default paste handler continue
+        return None 
