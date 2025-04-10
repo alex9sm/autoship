@@ -30,3 +30,18 @@ wheels/
 .vscode/
 *.swp
 *.swo 
+
+# Environment files
+.env
+
+# Keep folders but ignore contents
+templates/*
+pdfs/*
+generated/*
+archive/*
+
+# Exceptions to keep empty folders
+!templates/.gitkeep
+!pdfs/.gitkeep
+!generated/.gitkeep
+!archive/.gitkeep

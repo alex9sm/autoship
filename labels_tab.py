@@ -332,9 +332,33 @@ class LabelsTab:
         self.order_label_button = ctk.CTkButton(self.receiver_frame, text="Order Label", command=self.order_label)
         self.order_label_button.grid(row=4, column=0, columnspan=2, padx=20, pady=(20, 10))
         
+        # Create a frame for tracking number display
+        self.tracking_display_frame = ctk.CTkFrame(self.receiver_frame)
+        self.tracking_display_frame.grid(row=5, column=0, columnspan=2, padx=20, pady=(0, 10), sticky="ew")
+        
+        # Tracking number label
+        self.tracking_label = ctk.CTkLabel(self.tracking_display_frame, text="Tracking Number:")
+        self.tracking_label.grid(row=0, column=0, padx=(20, 10), pady=10, sticky="w")
+        
+        # Tracking number value (clickable)
+        self.tracking_value = ctk.CTkLabel(
+            self.tracking_display_frame, 
+            text="No label ordered yet",
+            text_color="#1F6AA5",
+            cursor="hand2"
+        )
+        self.tracking_value.grid(row=0, column=1, padx=(0, 20), pady=10, sticky="w")
+        
+        # Bind click event to copy function
+        self.tracking_value.bind("<Button-1>", lambda e: self.copy_tracking_number())
+        
+        # Add underline on hover
+        self.tracking_value.bind("<Enter>", lambda e: self.on_tracking_enter(self.tracking_value))
+        self.tracking_value.bind("<Leave>", lambda e: self.on_tracking_leave(self.tracking_value))
+        
         # Status message
         self.receiver_status_label = ctk.CTkLabel(self.receiver_frame, text="")
-        self.receiver_status_label.grid(row=5, column=0, columnspan=2, padx=20, pady=(0, 20))
+        self.receiver_status_label.grid(row=6, column=0, columnspan=2, padx=20, pady=(0, 20))
     
     def get_template_files(self):
         """Get a list of JSON template files in the templates folder"""
@@ -439,6 +463,17 @@ class LabelsTab:
                 
                 with open(response_path, 'w') as file:
                     json.dump(response, file, indent=2)
+                
+                # Extract tracking number from response
+                tracking_number = response.get("data", {}).get("tracking", "N/A")
+                
+                # Update tracking number display
+                if tracking_number != "N/A":
+                    self.tracking_value.configure(text=tracking_number)
+                    self.tracking_value.configure(text_color="#1F6AA5", cursor="hand2")
+                else:
+                    self.tracking_value.configure(text="No tracking number available")
+                    self.tracking_value.configure(text_color="gray", cursor="")
                 
                 self.receiver_status_label.configure(
                     text=f"Label ordered successfully! Response saved to {response_filename}", 
@@ -730,4 +765,12 @@ class LabelsTab:
         self.parent.clipboard_append(cleaned_text)
         
         # Let the default paste handler continue
-        return None 
+        return None
+
+    def copy_tracking_number(self):
+        """Copy the tracking number displayed under the Order Label button"""
+        tracking_number = self.tracking_value.cget("text")
+        
+        # Only copy if it's a valid tracking number
+        if tracking_number != "No label ordered yet" and tracking_number != "No tracking number available":
+            self.copy_to_clipboard(tracking_number) 
