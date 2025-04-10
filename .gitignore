@@ -1,9 +1,7 @@
-# Virtual Environment
 venv/
 env/
 ENV/
 
-# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -25,8 +23,21 @@ wheels/
 .installed.cfg
 *.egg
 
-# IDE files
 .idea/
 .vscode/
 *.swp
-*.swo 
+*.swo
+
+.env
+
+templates/*
+!templates/.gitkeep
+
+pdfs/*
+!pdfs/.gitkeep
+
+generated/*
+!generated/.gitkeep
+
+archive/*
+!archive/.gitkeep
